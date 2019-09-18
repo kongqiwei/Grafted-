@@ -1,0 +1,160 @@
+# grafted trees
+import random  #后面要生成随机数
+import pandas as pd
+import numpy as np
+from collections import Counter  #后面需要用counter这个方法统计字典中的键值对数目
+n=1   #随机森林中的树的数量，先置为1
+t=0.5   #线性划分还是随机化分的一个概率参数，t和1-t决定了选择哪一个划分，默认为0.5，即默认概率相同，在最后的函数中会有调用
+m=0.1   #正则化参数，用于解决联合协方差矩阵的奇异性问题，默认0.1
+a=0.9  #收缩参数，用于降低树大道深度，减少复杂度
+k=1    #候选划分特征空间的大小，即特征的数目
+n_min=1   #一个节点中的最少样本数，低于该值则为叶子节点
+labels=[]    #标签数组，存储所有的label
+values=[]     #value数组，存储所有的values
+features=[]    #特征空间数组，存储所有特征
+def loadDataSet(filename,path):     ##打开本地数据集文件，以iris为例
+    filename="iris.csv"
+    path="C:/Users/kongqiwei/Desktop/"
+    dataSet=pd.read_csv(path+filename)
+    return  dataSet
+
+def BuildForest(dataset, features, labels, n,t, m, a, k, n_min):  #建立森林
+    F=None
+    for i in range(n):
+        tree={}
+        tree[i] = BuildTree(dataset, features, labels,t, m, a, k, n_min) #建立树，往森林里加树
+        F = F + tree[i]
+    return F
+
+def BuildTree(dataset, features, labels, m, a, k, n_min):  #建立树
+    tree={features:{}}
+    while len(dataset)>=n_min:  #这里有问题，当节点中的样本数大于n_min时候，持续划分节点，树会长大
+         #传入参数的处理有问题
+        tree=BuildTree()+node_splitting(dataset)
+    return tree
+
+def createTree(dataset,labels):
+    classList=[example[-1] for  example in dataset]
+
+
+def node_splitting(node):  #节点划分，传入参数的处理也有问题
+    if stop_splitting(node)==True:  #停止划分的条件
+        leafnode={}               #停止即置节点为叶子节点
+        node = leafnode
+    else:
+         p = random(0, 1)    #在0-1中产生一个随机数
+         if p <t:            #根据t值调用线性划分还是随机划分
+             left_child,right_child=LDA_splitting(node)
+         else:
+             left_child, right_child = random_splitting(node)
+         node_splitting(left_child)   #递归划分节点，直到满足停止条件
+         node_splitting(right_child)
+
+def stop_splitting(node):  #这个函数写的不对，理解有问题
+    num_node=getNum_of_Node(node)   #调用函数求节点的数目，论文中没有这个函数，这是我自己为了编程逻辑的理解写的
+    if num_node <= n_min:
+        return True
+    else:
+        if len(node.items())==1:
+            return True
+        else:
+            if Counter(node)==1:# 如果节点处所有的样本的label一样,label其实只会是1或0
+                return True
+            else:
+                if Counter(node.keys())==1:# 如果节点处所有的样本的值一样，其实只会是1或者0
+                    return True
+                else:
+                    return False
+
+def LDA_splitting(dataset, y, k):
+        '''
+        x为数据集，y为label，k为目标维数
+        '''
+        left_child={}
+        right_child={}
+        labels = list(set(y))
+        x_classify = {}
+        for label in labels:
+            x1 = np.array([x[i] for i in range(len(x)) if y[i] == label]) #x1仅是一个临时变量，下一行就赋给了分类标签
+            #按label遍历并返回数据集中不同的label的第i个数据存储在数组中
+            x_classify[label] = x1
+            #按不同label进行分类，即label为分类标准
+        mju = np.mean(x, axis=0)  #总体数据集的均值
+        mju_classify = {}
+        for label in labels:
+            mju1 = np.mean(x_classify[label], axis=0)#按已经分类的label求数据集的均值
+            mju_classify[label] = mju1   #均值赋给分类标签
+        St = np.dot((x- mju).T, x- mju)  #即求矩阵内积
+        Sw = np.zeros((len(mju), len(mju)))  # 计算类内散度矩阵
+        for i in labels:
+            Sw += np.dot((x_classify[i] - mju_classify[i]).T,
+                         x_classify[i] - mju_classify[i])
+            #求不同label分类下的矩阵内积，计算协方差
+        Sb=St-Sw
+        Sb = np.zeros((len(mju), len(mju)))  # 计算类间散度矩阵
+        for i in labels:        #西格玛求和
+            Sb += len(x_classify[i]) * np.dot((mju_classify[i] - mju).reshape(
+                (len(mju), 1)), (mju_classify[i] - mju).reshape((1, len(mju))))
+        Sb_=Sb+m*I
+        muj0=mju-mju1
+        w=(muj0-muj1)/Sb_
+        b=-1/2(w*mju)+lg((len(x1)/(len(x)-len(x1))))
+        for  sample in dataset:
+            if np.dot((w.T),sample)+b<0:
+                left_child+=sample[label]
+            else:
+                right_child+=sample[label]
+        return left_child,right_child
+        '''eig_vals, eig_vecs = np.linalg.eig(np.linalg.inv(Sw).dot(Sb))  # 计算Sw-1*Sb的特征值和特征矩阵
+        sorted_indices = np.argsort(eig_vals)
+        topk_eig_vecs = eig_vecs[:, sorted_indices[:-k - 1:-1]]  # 提取前k个特征向量
+        '''
+
+def random_splitting(dataset):  #随机划分，这个函数也不懂
+    left_child={}    #用字典数据结构存储，但是下面会有一些问题
+    right_child={}
+    feature=[]
+    k=random.randint(1,4) #因为iris只有4个feature，所有在1-4中随机选择一个数k
+    a=random.sample(feature,k)  #在特征数组feature中随机选取k个不同的值
+    for i in range(k):
+            value[i] = ((feature[a[i]].value).sorted)[50]  #选取feature排序的第50个value为划分标准value，因为第五十属于中位数
+    # 以下不懂也不对   calculate splitting rule: , where Score is gini index based
+    '''for i in range(k):
+        score[k]=(getGini(feature[k]))   #调用函数计算feature的基尼指数
+    for i in range(k):
+        a_[i]=max(score) #得到score中的最大值'''
+    for sample in dataset:
+        for i in range(k):
+            sample.score[i] = (getGini(feature[k]))  # 调用函数计算feature的基尼指数
+        for i in range(k):
+            a_[i] = max(sample.score)  # 得到score中的最大值
+            v_[i]=max(sample.value)
+            if sample.a_[i]<v_[i]:  #逻辑有点乱，循环体的范围有问题
+                left_child+=sample
+            else:
+                right_child+=sample
+    return left_child,right_child
+
+def getNum_of_Node(tree):  #求树中的节点数，即字典中的键值对树
+        numnode = 0
+        firstSides = list(tree.keys())
+        firstStr = firstSides[0]
+        secondDict = tree[firstStr]
+        for key in secondDict.keys():
+            if type(secondDict[key]).__name__ == 'dict':
+                numnode += getNum_of_Node(secondDict[key])
+            else:
+                numnode += 1
+        return numnode
+
+def getGini(dataset):
+    count0=len(dataset[dataset['labels']==0])
+    count1=len(dataset[dataset['labels']==1])
+    count=len(dataset)
+    gini=1-np.square(np.true_divide(count0,count))-np.square(np.true_divide(count1,count))
+    return  gini
+
+if __name__=='__main__':  #主函数
+    filename="iris.csv"
+    path="C:kongqiwei/desktop/..."
+
